@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: 226d194b5b1dd784da58c19df962fef9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 300457
+  packageName: Code Buddy - project-aware code generation with ChatGPT, DeepSeek,
+    and Ollama
+  packageVersion: 2.7.0
+  assetPath: Assets/CodeBuddy/Demo/CodeBuddyDemo.cs
+  uploadId: 756008

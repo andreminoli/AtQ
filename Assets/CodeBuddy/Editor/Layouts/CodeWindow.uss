@@ -1,0 +1,8 @@
+
+.unity-list-view__empty-label {
+    display: none;
+};
+
+.attach-button {
+    background-image: url("./paperclip.png");
+}

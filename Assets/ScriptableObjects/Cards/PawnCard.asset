@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a04f8d003932185418fa38a4818a7eae, type: 3}
+  m_Name: PawnCard
+  m_EditorClassIdentifier: Assembly-CSharp::MoveCard
+  cardName: Pawn
+  description: 'Moves orthogonally 1 tile. Captures diagonally. Special: +2 forward
+    on first use.'
+  artwork: {fileID: 21300000, guid: ebd2420f9f7c5744ea96e2515f5bb929, type: 3}
+  focusCost: 1
+  moveOffsets:
+  - {x: 0, y: 1}
+  - {x: 0, y: -1}
+  - {x: 1, y: 0}
+  - {x: -1, y: 0}
+  captureOffsets:
+  - {x: 1, y: 1}
+  - {x: -1, y: 1}
+  - {x: -1, y: -1}
+  - {x: 1, y: -1}
+  isFirstMoveBonus: 1
+  bonusMoveDistance: 2
+  hasBeenUsed: 0
