@@ -7,6 +7,8 @@ public class PlayerPawn : MonoBehaviour
     public Vector2Int gridPosition;
     private GridManager grid;
     private List<Tile> highlightedTiles = new();
+    private MoveCard currentPreviewCard; // Track which card is being previewed
+
     public static event Action<PlayerPawn> OnInitialized;
     public bool IsInitialized { get; private set; }
 
@@ -36,18 +38,26 @@ public class PlayerPawn : MonoBehaviour
         Debug.Log($"PlayerPawn OnInitialized event triggered at frame {Time.frameCount}");
     }
 
-    public void TryUseCard(MoveCard card)
+    /// <summary>
+    /// Preview card moves without consuming the card (new method)
+    /// </summary>
+    public void PreviewCardMoves(MoveCard card)
     {
-        Debug.Log($"Attempting to use card: {card.cardName} at frame {Time.frameCount}");
+        Debug.Log($"Previewing moves for card: {card.cardName} at frame {Time.frameCount}");
 
         if (grid == null)
         {
-            Debug.LogError($"TryUseCard failed: GridManager reference is null at frame {Time.frameCount}.");
+            Debug.LogError($"PreviewCardMoves failed: GridManager reference is null at frame {Time.frameCount}.");
             return;
         }
 
-        ClearHighlights();
+        // Clear any existing highlights
+        ClearMovementPreview();
 
+        // Store reference to current preview card
+        currentPreviewCard = card;
+
+        // Show possible moves
         if (card.isSliding)
         {
             foreach (Vector2Int dir in card.slideDirections)
@@ -58,7 +68,7 @@ public class PlayerPawn : MonoBehaviour
                     Tile tile = grid.GetTileAt(testPos);
                     if (tile != null)
                     {
-                        tile.Highlight(Color.cyan, OnTileClicked);
+                        tile.Highlight(Color.cyan, OnTileClickedForMove);
                         highlightedTiles.Add(tile);
                     }
 
@@ -76,30 +86,120 @@ public class PlayerPawn : MonoBehaviour
                     Tile tile = grid.GetTileAt(testPos);
                     if (tile != null)
                     {
-                        tile.Highlight(Color.green, OnTileClicked);
+                        tile.Highlight(Color.green, OnTileClickedForMove);
                         highlightedTiles.Add(tile);
                     }
                 }
             }
         }
+
+        Debug.Log($"Highlighted {highlightedTiles.Count} tiles for card {card.cardName}");
     }
 
+    /// <summary>
+    /// Legacy method - now calls PreviewCardMoves for backward compatibility
+    /// </summary>
+    public void TryUseCard(MoveCard card)
+    {
+        Debug.Log($"TryUseCard (legacy) called for: {card.cardName} - delegating to PreviewCardMoves");
+        PreviewCardMoves(card);
+    }
+
+    /// <summary>
+    /// Handle tile click when previewing moves - this is where we actually consume the card
+    /// </summary>
+    private void OnTileClickedForMove(Tile tile)
+    {
+        Debug.Log($"Tile clicked for move: {tile.gridPosition} at frame {Time.frameCount}");
+
+        if (currentPreviewCard == null)
+        {
+            Debug.LogWarning("Tile clicked but no card is being previewed!");
+            return;
+        }
+
+        if (DeckManager.Instance == null)
+        {
+            Debug.LogWarning("Cannot execute move - DeckManager not found.");
+            ClearMovementPreview();
+            return;
+        }
+
+        // NOW we consume the card from the hand
+        if (DeckManager.Instance.TryUseCard(currentPreviewCard))
+        {
+            // Execute the move
+            ExecuteMoveTo(tile.gridPosition);
+            Debug.Log($"Successfully used card {currentPreviewCard.cardName} to move to {tile.gridPosition}");
+        }
+        else
+        {
+            Debug.LogWarning($"Failed to use card {currentPreviewCard.cardName} - not in current hand");
+        }
+
+        // Clear the preview
+        ClearMovementPreview();
+    }
+
+    /// <summary>
+    /// Legacy tile click handler - kept for backward compatibility
+    /// </summary>
     private void OnTileClicked(Tile tile)
     {
-        gridPosition = tile.gridPosition;
-        transform.position = new Vector3(gridPosition.x, 0.5f, gridPosition.y);
-        Debug.Log($"Moved player to {gridPosition} at frame {Time.frameCount}");
-        ClearHighlights();
+        Debug.Log($"Legacy OnTileClicked called - delegating to OnTileClickedForMove");
+        OnTileClickedForMove(tile);
     }
 
+    /// <summary>
+    /// Execute the actual movement to a position
+    /// </summary>
+    private void ExecuteMoveTo(Vector2Int targetPosition)
+    {
+        gridPosition = targetPosition;
+        transform.position = new Vector3(gridPosition.x, 0.5f, gridPosition.y);
+        Debug.Log($"Moved player to {gridPosition} at frame {Time.frameCount}");
+    }
+
+    /// <summary>
+    /// Clear movement preview highlights
+    /// </summary>
+    public void ClearMovementPreview()
+    {
+        ClearHighlights();
+        currentPreviewCard = null;
+        Debug.Log($"Cleared movement preview at frame {Time.frameCount}");
+    }
+
+    /// <summary>
+    /// Clear tile highlights (internal method)
+    /// </summary>
     private void ClearHighlights()
     {
         foreach (Tile tile in highlightedTiles)
         {
-            tile.ClearHighlight();
+            if (tile != null)
+            {
+                tile.ClearHighlight();
+            }
         }
 
         highlightedTiles.Clear();
+    }
+
+    /// <summary>
+    /// Get the currently previewed card
+    /// </summary>
+    public MoveCard GetCurrentPreviewCard()
+    {
+        return currentPreviewCard;
+    }
+
+    /// <summary>
+    /// Check if player is currently previewing moves
+    /// </summary>
+    public bool IsPreviewingMoves()
+    {
+        return currentPreviewCard != null && highlightedTiles.Count > 0;
     }
 
     /// <summary>
@@ -130,6 +230,8 @@ public class PlayerPawn : MonoBehaviour
         Debug.Log($"World Position: {transform.position}");
         Debug.Log($"Grid Manager: {(grid != null ? grid.name : "NULL")}");
         Debug.Log($"Highlighted Tiles: {highlightedTiles.Count}");
+        Debug.Log($"Current Preview Card: {(currentPreviewCard != null ? currentPreviewCard.cardName : "NULL")}");
+        Debug.Log($"Is Previewing Moves: {IsPreviewingMoves()}");
         Debug.Log("=================================");
     }
 #endif

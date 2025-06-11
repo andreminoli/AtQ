@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class CardManager : MonoBehaviour
 {
@@ -14,12 +15,17 @@ public class CardManager : MonoBehaviour
     private PlayerPawn player;
     private bool cardSpawnStarted = false;
     private List<GameObject> spawnedCardObjects = new();
+    private List<MoveCard> currentDisplayedCards = new(); // Track what's currently displayed
 
     void OnEnable()
     {
         PlayerPawn.OnInitialized += HandlePlayerInitialized;
         DeckManager.OnHandUpdated += HandleHandUpdated;
         DeckManager.OnHandCleared += HandleHandCleared;
+
+        // Subscribe to selection events to avoid unnecessary redraws
+        CardSelectionManager.OnCardSelected += HandleCardSelected;
+        CardSelectionManager.OnCardDeselected += HandleCardDeselected;
 
         Debug.Log($"🔗 CardManager subscribed to events at frame {Time.frameCount}");
     }
@@ -29,6 +35,8 @@ public class CardManager : MonoBehaviour
         PlayerPawn.OnInitialized -= HandlePlayerInitialized;
         DeckManager.OnHandUpdated -= HandleHandUpdated;
         DeckManager.OnHandCleared -= HandleHandCleared;
+        CardSelectionManager.OnCardSelected -= HandleCardSelected;
+        CardSelectionManager.OnCardDeselected -= HandleCardDeselected;
 
         Debug.Log($"🔌 CardManager unsubscribed from events at frame {Time.frameCount}");
     }
@@ -119,7 +127,14 @@ public class CardManager : MonoBehaviour
             return;
         }
 
-        Debug.Log($"🃏 Updating hand display with {newHand.Count} cards at frame {Time.frameCount}");
+        // Check if the hand actually changed to avoid unnecessary UI rebuilds
+        if (AreHandsEqual(currentDisplayedCards, newHand))
+        {
+            Debug.Log($"⚪ Hand content unchanged ({newHand.Count} cards) - skipping UI rebuild at frame {Time.frameCount}");
+            return;
+        }
+
+        Debug.Log($"🃏 Hand content changed - updating display with {newHand.Count} cards at frame {Time.frameCount}");
         StartCoroutine(UpdateHandDisplayRoutine(newHand));
     }
 
@@ -127,11 +142,42 @@ public class CardManager : MonoBehaviour
     {
         Debug.Log($"🧹 Hand cleared by DeckManager at frame {Time.frameCount}");
         ClearAllCardUIs();
+        currentDisplayedCards.Clear();
+    }
+
+    void HandleCardSelected(MoveCard selectedCard)
+    {
+        Debug.Log($"🎯 Card selected: {selectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
+        // No need to rebuild UI - CardSelectionManager handles the visual updates
+    }
+
+    void HandleCardDeselected(MoveCard deselectedCard)
+    {
+        Debug.Log($"⚪ Card deselected: {deselectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
+        // No need to rebuild UI - CardSelectionManager handles the visual updates
+    }
+
+    /// <summary>
+    /// Check if two hand lists contain the same cards in the same order
+    /// </summary>
+    bool AreHandsEqual(List<MoveCard> hand1, List<MoveCard> hand2)
+    {
+        if (hand1.Count != hand2.Count) return false;
+
+        for (int i = 0; i < hand1.Count; i++)
+        {
+            if (hand1[i] != hand2[i]) return false;
+        }
+
+        return true;
     }
 
     IEnumerator UpdateHandDisplayRoutine(List<MoveCard> cards)
     {
         Debug.Log($"🎬 Starting hand display update routine at frame {Time.frameCount}");
+
+        // Store the new hand configuration
+        currentDisplayedCards = new List<MoveCard>(cards);
 
         ClearAllCardUIs();
 
@@ -171,6 +217,12 @@ public class CardManager : MonoBehaviour
         }
 
         Debug.Log($"🎴 Hand display updated — {successfulSpawns}/{cards.Count} card UIs spawned at frame {Time.frameCount}");
+
+        // Notify CardSelectionManager to update selections after UI rebuild
+        if (CardSelectionManager.Instance != null)
+        {
+            CardSelectionManager.Instance.OnHandUpdated();
+        }
     }
 
     void ClearAllCardUIs()
@@ -195,6 +247,8 @@ public class CardManager : MonoBehaviour
 
         if (DeckManager.Instance != null)
         {
+            // Force a rebuild by clearing current displayed cards
+            currentDisplayedCards.Clear();
             HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
@@ -221,6 +275,7 @@ public class CardManager : MonoBehaviour
         if (cardSpawnStarted && player != null && DeckManager.Instance != null && DeckManager.Instance.HasCards)
         {
             Debug.Log($"🔧 Force triggering hand update at frame {Time.frameCount}");
+            currentDisplayedCards.Clear(); // Force rebuild
             HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
@@ -233,6 +288,40 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Get all currently spawned CardUI components
+    /// </summary>
+    public List<CardUI> GetAllCardUIs()
+    {
+        List<CardUI> cardUIs = new List<CardUI>();
+        foreach (GameObject cardObj in spawnedCardObjects)
+        {
+            if (cardObj != null)
+            {
+                CardUI cardUI = cardObj.GetComponent<CardUI>();
+                if (cardUI != null)
+                {
+                    cardUIs.Add(cardUI);
+                }
+            }
+        }
+        return cardUIs;
+    }
+
+    /// <summary>
+    /// Update the interactability of all cards based on game state
+    /// </summary>
+    public void UpdateAllCardsInteractability()
+    {
+        foreach (CardUI cardUI in GetAllCardUIs())
+        {
+            if (cardUI != null)
+            {
+                cardUI.UpdateCardState();
+            }
+        }
+    }
+
 #if UNITY_EDITOR
     [ContextMenu("Debug Card Manager State")]
     void DebugCardManagerState()
@@ -242,6 +331,7 @@ public class CardManager : MonoBehaviour
         Debug.Log($"Player Reference: {(player != null ? player.name : "NULL")}");
         Debug.Log($"Player Initialized: {(player != null ? player.IsInitialized.ToString() : "N/A")}");
         Debug.Log($"Spawned Card Objects: {spawnedCardObjects.Count}");
+        Debug.Log($"Currently Displayed Cards: {currentDisplayedCards.Count}");
         Debug.Log($"Legacy Cards to Spawn: {cardsToSpawn.Count}");
 
         if (DeckManager.Instance != null)
@@ -256,7 +346,24 @@ public class CardManager : MonoBehaviour
 
         Debug.Log($"Card Parent: {(cardParent != null ? cardParent.name : "NULL")}");
         Debug.Log($"Card UI Prefab: {(cardUIPrefab != null ? cardUIPrefab.name : "NULL")}");
+
+        // Display current hand vs displayed cards
+        Debug.Log("=== HAND COMPARISON ===");
+        if (DeckManager.Instance != null)
+        {
+            var currentHand = DeckManager.Instance.CurrentHand;
+            Debug.Log($"DeckManager Hand: [{string.Join(", ", currentHand.Where(c => c != null).Select(c => c.cardName))}]");
+        }
+        Debug.Log($"Displayed Cards: [{string.Join(", ", currentDisplayedCards.Where(c => c != null).Select(c => c.cardName))}]");
+
         Debug.Log("===========================");
+    }
+
+    [ContextMenu("Force Rebuild UI")]
+    void ForceRebuildUI()
+    {
+        Debug.Log("🔧 Force rebuilding card UI from editor");
+        RefreshHandDisplay();
     }
 #endif
 }

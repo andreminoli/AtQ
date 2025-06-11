@@ -19,9 +19,11 @@ public class CardUI : MonoBehaviour
     private MoveCard card;
     private PlayerPawn player;
     private bool isHeld = false;
+    private bool isSelected = false;
 
     public MoveCard GetCard() => card;
     public bool IsHeld => isHeld;
+    public bool IsSelected => isSelected;
 
     public void Setup(MoveCard cardData, PlayerPawn playerRef)
     {
@@ -32,6 +34,12 @@ public class CardUI : MonoBehaviour
         {
             Debug.LogError("Setup failed: cardData is null.");
             return;
+        }
+
+        // Validate PlayerPawn has GridManager
+        if (player != null && !player.IsInitialized)
+        {
+            Debug.LogWarning($"[CardUI] PlayerPawn is not properly initialized for card {card.cardName}");
         }
 
         // 🔍 Check essential UI fields only (not artworkImage)
@@ -85,6 +93,12 @@ public class CardUI : MonoBehaviour
             }
         }
 
+        // Check if this card is currently selected
+        if (CardSelectionManager.Instance != null && CardSelectionManager.Instance.selectedCard == card)
+        {
+            SetSelected(true);
+        }
+
         // 🧩 Optional: Set LayoutElement fallback size
         LayoutElement layout = GetComponent<LayoutElement>();
         if (layout != null)
@@ -104,27 +118,41 @@ public class CardUI : MonoBehaviour
 
         if (player == null || card == null)
         {
-            Debug.LogWarning("Cannot play card — Player or Card is null.");
+            Debug.LogWarning("Cannot select card — Player or Card is null.");
             return;
         }
 
         if (DeckManager.Instance == null)
         {
-            Debug.LogWarning("Cannot play card — DeckManager not found.");
+            Debug.LogWarning("Cannot select card — DeckManager not found.");
             return;
         }
 
-        // Try to use the card through DeckManager
-        if (DeckManager.Instance.TryUseCard(card))
+        if (CardSelectionManager.Instance == null)
         {
-            // DeckManager handles removing the card from hand
-            // PlayerPawn handles the actual card effect
-            player.TryUseCard(card);
+            Debug.LogWarning("Cannot select card — CardSelectionManager not found.");
+            return;
         }
-        else
+
+        // Check if card is still in hand (UI might be outdated)
+        if (!DeckManager.Instance.CurrentHand.Contains(card))
         {
-            Debug.LogWarning($"Failed to use card {card.cardName} - not in current hand or other issue");
+            Debug.LogWarning($"Card {card.cardName} is no longer in hand - refreshing UI");
+            return;
         }
+
+        // If this card is already selected, don't reselect
+        if (CardSelectionManager.Instance.selectedCard == card)
+        {
+            Debug.Log($"Card {card.cardName} is already selected");
+            return;
+        }
+
+        // Select this card (this will deselect any previously selected card)
+        CardSelectionManager.Instance.SelectCard(card);
+
+        // Show movement preview through PlayerPawn (don't consume card yet)
+        player.PreviewCardMoves(card);
     }
 
     private void OnHoldClick()
@@ -176,13 +204,44 @@ public class CardUI : MonoBehaviour
     /// </summary>
     public void SetSelected(bool selected)
     {
+        isSelected = selected;
+
         if (selectedIndicator != null)
         {
             selectedIndicator.gameObject.SetActive(selected);
         }
 
+        // Update visual appearance
+        if (playButton != null)
+        {
+            // Change button appearance based on selection
+            ColorBlock colors = playButton.colors;
+            colors.normalColor = selected ? Color.yellow : Color.white;
+            playButton.colors = colors;
+        }
+
         // You could also update the card's appearance here
         // e.g., change border color, scale, etc.
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup != null)
+        {
+            // Slightly highlight selected cards
+            canvasGroup.alpha = selected ? 1f : 0.8f;
+        }
+    }
+
+    /// <summary>
+    /// Clear selection and any visual highlights
+    /// </summary>
+    public void CancelSelection()
+    {
+        SetSelected(false);
+
+        // Clear any movement previews through PlayerPawn
+        if (player != null)
+        {
+            player.ClearMovementPreview();
+        }
     }
 
     /// <summary>
@@ -204,7 +263,7 @@ public class CardUI : MonoBehaviour
         CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup != null)
         {
-            canvasGroup.alpha = interactable ? 1f : 0.6f;
+            canvasGroup.alpha = interactable ? (isSelected ? 1f : 0.8f) : 0.4f;
         }
     }
 
@@ -222,6 +281,12 @@ public class CardUI : MonoBehaviour
     public virtual bool CanPlay()
     {
         if (card == null || player == null) return false;
+
+        // Check if card is still in hand
+        if (DeckManager.Instance != null && !DeckManager.Instance.CurrentHand.Contains(card))
+        {
+            return false;
+        }
 
         // Add any custom play conditions here
         // e.g., focus cost checks, turn restrictions, etc.
@@ -258,6 +323,12 @@ public class CardUI : MonoBehaviour
         {
             holdButton.onClick.RemoveAllListeners();
         }
+
+        // If this card was selected, clear the selection
+        if (isSelected && CardSelectionManager.Instance != null && CardSelectionManager.Instance.selectedCard == card)
+        {
+            CardSelectionManager.Instance.ClearSelection();
+        }
     }
 
 #if UNITY_EDITOR
@@ -271,6 +342,7 @@ public class CardUI : MonoBehaviour
         Debug.Log($"Card: {(card != null ? card.cardName : "NULL")}");
         Debug.Log($"Player: {(player != null ? player.name : "NULL")}");
         Debug.Log($"Is Held: {isHeld}");
+        Debug.Log($"Is Selected: {isSelected}");
         Debug.Log($"Can Play: {CanPlay()}");
         Debug.Log($"Focus Cost: {GetFocusCost()}");
         Debug.Log("=====================");
