@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 public class GridManager : MonoBehaviour
@@ -46,7 +46,10 @@ public class GridManager : MonoBehaviour
             return;
         }
 
-        GameObject pawnObj = Instantiate(playerPrefab);
+        // 🧲 Parent the player under BoardRoot (this object's parent)
+        GameObject pawnObj = Instantiate(playerPrefab, transform.parent);
+        pawnObj.name = "PlayerPawn";
+
         player = pawnObj.GetComponent<PlayerPawn>();
 
         if (player == null)

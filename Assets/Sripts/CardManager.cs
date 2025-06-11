@@ -1,79 +1,262 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
-/// <summary>
-/// CardManager is responsible for spawning and initializing a single card UI element in the scene.
-/// It waits for PlayerPawn to be present before proceeding, since the card needs a valid player reference.
-/// </summary>
 public class CardManager : MonoBehaviour
 {
-    // The parent RectTransform where card UI elements will be instantiated (e.g., a panel inside the Canvas)
-    public RectTransform cardParent;
-
-    // The card UI prefab to instantiate (should include the CardUI component and proper layout setup)
+    [Header("Card Setup")]
+    public Transform cardParent;
     public GameObject cardUIPrefab;
 
-    // A reference to the card data (ScriptableObject) that defines this card's name, sprite, cost, etc.
-    public MoveCard cardToSpawn;
+    [Header("Legacy - Will be removed")]
+    [SerializeField] private List<MoveCard> cardsToSpawn = new();
 
-    /// <summary>
-    /// Unity's Start method, implemented as a coroutine to wait for dependencies (PlayerPawn).
-    /// </summary>
-    private IEnumerator Start()
+    private PlayerPawn player;
+    private bool cardSpawnStarted = false;
+    private List<GameObject> spawnedCardObjects = new();
+
+    void OnEnable()
     {
-        Debug.Log("CardManager: Start");
+        PlayerPawn.OnInitialized += HandlePlayerInitialized;
+        DeckManager.OnHandUpdated += HandleHandUpdated;
+        DeckManager.OnHandCleared += HandleHandCleared;
 
-        // 🔄 DEFERRED EXECUTION:
-        // GridManager spawns PlayerPawn at runtime, but Unity calls Start() in hierarchy order.
-        // To ensure the player is available, we wait here until it exists.
-        yield return new WaitUntil(() => FindAnyObjectByType<PlayerPawn>() != null);
+        Debug.Log($"🔗 CardManager subscribed to events at frame {Time.frameCount}");
+    }
 
-        // 🔍 SAFETY CHECK:
-        // We check again in case the player was unexpectedly destroyed or never spawned.
-        PlayerPawn player = FindAnyObjectByType<PlayerPawn>();
-        if (player == null)
+    void OnDisable()
+    {
+        PlayerPawn.OnInitialized -= HandlePlayerInitialized;
+        DeckManager.OnHandUpdated -= HandleHandUpdated;
+        DeckManager.OnHandCleared -= HandleHandCleared;
+
+        Debug.Log($"🔌 CardManager unsubscribed from events at frame {Time.frameCount}");
+    }
+
+    void Start()
+    {
+        Debug.Log($"📦 CardManager Start() called at frame {Time.frameCount}");
+        StartCoroutine(DelayedStartInitialization());
+    }
+
+    IEnumerator DelayedStartInitialization()
+    {
+        Debug.Log($"⏳ Starting delayed initialization at frame {Time.frameCount}");
+
+        // Wait for systems like DeckManager to fully initialize
+        yield return null;
+        yield return null;
+        yield return new WaitForEndOfFrame();
+
+        if (cardParent == null || cardUIPrefab == null)
         {
-            Debug.LogError("No PlayerPawn found after waiting.");
-            yield break; // Abort early — cannot continue without player reference.
+            Debug.LogError("❌ CardManager is missing cardParent or cardUIPrefab references.");
+            yield break;
         }
 
-        // 🔐 VALIDATION:
-        // Ensure that all necessary references are set before continuing.
-        if (!cardUIPrefab || !cardParent || !cardToSpawn)
+        if (cardsToSpawn.Count > 0 && DeckManager.Instance != null)
         {
-            Debug.LogError("Missing reference(s) on CardManager.");
-            yield break; // Prevent null reference exceptions during instantiation/setup.
+            Debug.Log($"🔄 Found {cardsToSpawn.Count} legacy cards - migrating to DeckManager at frame {Time.frameCount}");
+            MigrateLegacyCards();
         }
 
-        // 🛠️ INSTANTIATION:
-        // Create the UI card as a child of the specified panel (cardParent) so it's rendered in the canvas hierarchy.
-        GameObject cardGO = Instantiate(cardUIPrefab, cardParent);
-
-        // 🎯 LAYOUT SETUP:
-        // Manually configure RectTransform to center the card on the panel.
-        // These values override any prefab anchor defaults and ensure a consistent position.
-        RectTransform rt = cardGO.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f); // Anchor to middle of parent
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);     // Pivot from center
-        rt.anchoredPosition = Vector2.zero;     // Position at center
-        rt.localScale = Vector3.one;            // Ensure uniform scale
-        rt.sizeDelta = new Vector2(300, 550);   // Optional: force a standard card size (can be parameterized later)
-
-        Debug.Log("Spawned card at " + rt.anchoredPosition);
-
-        // ⚙️ DATA BINDING:
-        // Feed the card's data and player reference into the CardUI so it can display and react accordingly.
-        CardUI cardUI = cardGO.GetComponent<CardUI>();
-        if (cardUI != null)
+        player = FindAnyObjectByType<PlayerPawn>();
+        if (player != null && player.IsInitialized && !cardSpawnStarted)
         {
-            cardUI.Setup(cardToSpawn, player);
+            Debug.Log($"📦 Late PlayerPawn found — triggering HandlePlayerInitialized at frame {Time.frameCount}");
+            HandlePlayerInitialized(player);
+        }
+    }
+
+    void HandlePlayerInitialized(PlayerPawn playerRef)
+    {
+        if (cardSpawnStarted)
+        {
+            Debug.Log($"⏭️ Card spawn already started, skipping HandlePlayerInitialized at frame {Time.frameCount}");
+            return;
+        }
+
+        if (DeckManager.Instance == null)
+        {
+            Debug.LogWarning($"🚫 DeckManager is null during HandlePlayerInitialized — skipping.");
+            return;
+        }
+
+        Debug.Log($"🕐 CardManager initialized with PlayerPawn at frame {Time.frameCount}");
+        player = playerRef;
+        cardSpawnStarted = true;
+
+        if (DeckManager.Instance.HasCards)
+        {
+            Debug.Log($"📋 DeckManager already has {DeckManager.Instance.CurrentHand.Count} cards — displaying them at frame {Time.frameCount}");
+            HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
         {
-            // 🔴 CRITICAL ERROR:
-            // If this happens, the prefab is not set up correctly (missing CardUI component).
-            Debug.LogError("CardUI component not found on card prefab.");
+            Debug.Log($"📭 DeckManager has no cards yet, waiting for hand update at frame {Time.frameCount}");
         }
     }
+
+    void MigrateLegacyCards()
+    {
+        foreach (MoveCard card in cardsToSpawn)
+        {
+            if (card != null)
+            {
+                DeckManager.Instance.AddCardToPool(card);
+            }
+        }
+
+        cardsToSpawn.Clear();
+        Debug.Log($"✅ Legacy card migration complete at frame {Time.frameCount}");
+    }
+
+    void HandleHandUpdated(List<MoveCard> newHand)
+    {
+        if (!cardSpawnStarted || player == null)
+        {
+            Debug.LogWarning($"⚠️ CardManager not ready to display hand — waiting for player initialization at frame {Time.frameCount}");
+            return;
+        }
+
+        Debug.Log($"🃏 Updating hand display with {newHand.Count} cards at frame {Time.frameCount}");
+        StartCoroutine(UpdateHandDisplayRoutine(newHand));
+    }
+
+    void HandleHandCleared()
+    {
+        Debug.Log($"🧹 Hand cleared by DeckManager at frame {Time.frameCount}");
+        ClearAllCardUIs();
+    }
+
+    IEnumerator UpdateHandDisplayRoutine(List<MoveCard> cards)
+    {
+        Debug.Log($"🎬 Starting hand display update routine at frame {Time.frameCount}");
+
+        ClearAllCardUIs();
+
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForEndOfFrame();
+
+        Debug.Log($"🎭 Beginning card UI spawning at frame {Time.frameCount}");
+
+        int successfulSpawns = 0;
+        foreach (MoveCard card in cards)
+        {
+            if (card == null)
+            {
+                Debug.LogWarning($"⚠️ Null card in hand — skipping at frame {Time.frameCount}");
+                continue;
+            }
+
+            GameObject cardGO = Instantiate(cardUIPrefab, cardParent);
+            CardUI cardUI = cardGO.GetComponent<CardUI>();
+
+            if (cardUI != null)
+            {
+                cardUI.Setup(card, player);
+                spawnedCardObjects.Add(cardGO);
+                successfulSpawns++;
+
+                Debug.Log($"✅ Card '{card.cardName}' spawned successfully at frame {Time.frameCount}");
+                Debug.Log($"↳ Parent: {cardParent.name} | Pos: {cardGO.transform.localPosition} | Scale: {cardGO.transform.localScale}");
+            }
+            else
+            {
+                Debug.LogError($"❌ Spawned card prefab missing CardUI component at frame {Time.frameCount}");
+                Destroy(cardGO);
+            }
+
+            yield return null;
+        }
+
+        Debug.Log($"🎴 Hand display updated — {successfulSpawns}/{cards.Count} card UIs spawned at frame {Time.frameCount}");
+    }
+
+    void ClearAllCardUIs()
+    {
+        int clearedCount = 0;
+        foreach (GameObject cardObj in spawnedCardObjects)
+        {
+            if (cardObj != null)
+            {
+                Destroy(cardObj);
+                clearedCount++;
+            }
+        }
+
+        spawnedCardObjects.Clear();
+        Debug.Log($"🗑️ Cleared {clearedCount} card UI objects at frame {Time.frameCount}");
+    }
+
+    public void RefreshHandDisplay()
+    {
+        Debug.Log($"🔄 Force refreshing hand display at frame {Time.frameCount}");
+
+        if (DeckManager.Instance != null)
+        {
+            HandleHandUpdated(DeckManager.Instance.CurrentHand);
+        }
+        else
+        {
+            Debug.LogWarning("❌ Cannot refresh hand display — DeckManager not found.");
+        }
+    }
+
+    public int GetDisplayedCardCount() => spawnedCardObjects.Count;
+
+    public bool IsCardDisplayed(MoveCard card)
+    {
+        foreach (GameObject cardObj in spawnedCardObjects)
+        {
+            CardUI cardUI = cardObj.GetComponent<CardUI>();
+            if (cardUI != null && cardUI.GetCard() == card)
+                return true;
+        }
+        return false;
+    }
+
+    public void ForceHandUpdate()
+    {
+        if (cardSpawnStarted && player != null && DeckManager.Instance != null && DeckManager.Instance.HasCards)
+        {
+            Debug.Log($"🔧 Force triggering hand update at frame {Time.frameCount}");
+            HandleHandUpdated(DeckManager.Instance.CurrentHand);
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ Cannot force hand update — systems not ready at frame {Time.frameCount}");
+            Debug.LogWarning($"    Card Spawn Started: {cardSpawnStarted}");
+            Debug.LogWarning($"    Player: {(player != null ? player.name : "NULL")}");
+            Debug.LogWarning($"    DeckManager: {(DeckManager.Instance != null ? "Found" : "NULL")}");
+            Debug.LogWarning($"    Has Cards: {(DeckManager.Instance?.HasCards ?? false)}");
+        }
+    }
+
+#if UNITY_EDITOR
+    [ContextMenu("Debug Card Manager State")]
+    void DebugCardManagerState()
+    {
+        Debug.Log($"=== CARD MANAGER DEBUG (Frame {Time.frameCount}) ===");
+        Debug.Log($"Card Spawn Started: {cardSpawnStarted}");
+        Debug.Log($"Player Reference: {(player != null ? player.name : "NULL")}");
+        Debug.Log($"Player Initialized: {(player != null ? player.IsInitialized.ToString() : "N/A")}");
+        Debug.Log($"Spawned Card Objects: {spawnedCardObjects.Count}");
+        Debug.Log($"Legacy Cards to Spawn: {cardsToSpawn.Count}");
+
+        if (DeckManager.Instance != null)
+        {
+            Debug.Log($"DeckManager Hand Size: {DeckManager.Instance.CurrentHand.Count}");
+            Debug.Log($"DeckManager Has Cards: {DeckManager.Instance.HasCards}");
+        }
+        else
+        {
+            Debug.Log("DeckManager: NOT FOUND");
+        }
+
+        Debug.Log($"Card Parent: {(cardParent != null ? cardParent.name : "NULL")}");
+        Debug.Log($"Card UI Prefab: {(cardUIPrefab != null ? cardUIPrefab.name : "NULL")}");
+        Debug.Log("===========================");
+    }
+#endif
 }

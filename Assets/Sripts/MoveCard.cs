@@ -20,5 +20,9 @@ public class MoveCard : ScriptableObject
     public bool isFirstMoveBonus = false;
     public int bonusMoveDistance = 0;
 
-    [HideInInspector] public bool hasBeenUsed = false; // Tracked at runtime
+    [Header("Sliding Logic")]
+    public bool isSliding = false;                        // If true, card slides until off board (like bishop/rook)
+    public List<Vector2Int> slideDirections;              // Each direction to slide in (e.g. diagonals for bishop)
+
+    [HideInInspector] public bool hasBeenUsed = false;    // Tracked at runtime
 }

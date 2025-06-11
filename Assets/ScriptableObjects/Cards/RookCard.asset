@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a04f8d003932185418fa38a4818a7eae, type: 3}
+  m_Name: RookCard
+  m_EditorClassIdentifier: Assembly-CSharp::MoveCard
+  cardName: Rook
+  description: Moves like a rook
+  artwork: {fileID: 21300000, guid: 1f23ba9e4051bf94c82a8336ead87d2a, type: 3}
+  focusCost: 2
+  moveOffsets: []
+  captureOffsets: []
+  isFirstMoveBonus: 0
+  bonusMoveDistance: 0
+  isSliding: 1
+  slideDirections:
+  - {x: 0, y: 1}
+  - {x: 0, y: -1}
+  - {x: 1, y: 0}
+  - {x: -1, y: 0}
+  hasBeenUsed: 1
