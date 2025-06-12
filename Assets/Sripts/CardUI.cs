@@ -36,13 +36,22 @@ public class CardUI : MonoBehaviour
             return;
         }
 
-        // Validate PlayerPawn has GridManager
-        if (player != null && !player.IsInitialized)
+        if (player == null)
+        {
+            Debug.LogError($"[CardUI] Setup failed: PlayerPawn is null for card {card.cardName}");
+            return;
+        }
+
+        if (!player.IsInitialized)
         {
             Debug.LogWarning($"[CardUI] PlayerPawn is not properly initialized for card {card.cardName}");
         }
 
-        // 🔍 Check essential UI fields only (not artworkImage)
+        if (player.GridManager == null)
+        {
+            Debug.LogWarning($"[CardUI] PlayerPawn lacks GridManager for card {card.cardName}");
+        }
+
         if (cardNameText == null || descriptionText == null || focusText == null || playButton == null)
         {
             Debug.LogError("[CardUI] One or more critical UI references are missing!");
@@ -53,12 +62,10 @@ public class CardUI : MonoBehaviour
             return;
         }
 
-        // ✅ Apply card data to text fields
         cardNameText.text = card.cardName;
         descriptionText.text = card.description;
         focusText.text = $"Focus = {card.focusCost}";
 
-        // 🖼 Handle artwork (optional)
         if (artworkImage != null)
         {
             if (card.artwork != null)
@@ -73,19 +80,16 @@ public class CardUI : MonoBehaviour
             }
         }
 
-        // 🎯 Set up play button safely
         playButton.interactable = false;
         playButton.onClick.RemoveAllListeners();
         playButton.onClick.AddListener(OnPlayClick);
         playButton.interactable = true;
 
-        // 📌 Set up hold button if available
         if (holdButton != null)
         {
             holdButton.onClick.RemoveAllListeners();
             holdButton.onClick.AddListener(OnHoldClick);
 
-            // Check if this card is already held
             if (DeckManager.Instance != null)
             {
                 isHeld = DeckManager.Instance.IsCardHeld(card);
@@ -93,13 +97,11 @@ public class CardUI : MonoBehaviour
             }
         }
 
-        // Check if this card is currently selected
         if (CardSelectionManager.Instance != null && CardSelectionManager.Instance.selectedCard == card)
         {
             SetSelected(true);
         }
 
-        // 🧩 Optional: Set LayoutElement fallback size
         LayoutElement layout = GetComponent<LayoutElement>();
         if (layout != null)
         {
@@ -107,14 +109,13 @@ public class CardUI : MonoBehaviour
             if (layout.preferredHeight <= 0) layout.preferredHeight = 200;
         }
 
-        // ✅ Debug info
         RectTransform rt = GetComponent<RectTransform>();
         Debug.Log($"Card setup complete: {card.cardName}, sprite: {(card.artwork != null ? card.artwork.name : "None")}, size: {rt.sizeDelta}, scale: {rt.localScale}");
     }
 
     private void OnPlayClick()
     {
-        Debug.Log($"🎮 Clicked play on card: {card?.cardName}");
+        Debug.Log($"Clicked play on card: {card?.cardName}");
 
         if (player == null || card == null)
         {
@@ -134,24 +135,20 @@ public class CardUI : MonoBehaviour
             return;
         }
 
-        // Check if card is still in hand (UI might be outdated)
         if (!DeckManager.Instance.CurrentHand.Contains(card))
         {
             Debug.LogWarning($"Card {card.cardName} is no longer in hand - refreshing UI");
             return;
         }
 
-        // If this card is already selected, don't reselect
         if (CardSelectionManager.Instance.selectedCard == card)
         {
             Debug.Log($"Card {card.cardName} is already selected");
             return;
         }
 
-        // Select this card (this will deselect any previously selected card)
         CardSelectionManager.Instance.SelectCard(card);
 
-        // Show movement preview through PlayerPawn (don't consume card yet)
         player.PreviewCardMoves(card);
     }
 
@@ -165,17 +162,15 @@ public class CardUI : MonoBehaviour
 
         if (isHeld)
         {
-            // Release the hold
             DeckManager.Instance.ReleaseHeldCard(card);
             isHeld = false;
-            Debug.Log($"🔓 Released hold on card: {card.cardName}");
+            Debug.Log($"Released hold on card: {card.cardName}");
         }
         else
         {
-            // Hold the card
             DeckManager.Instance.HoldCard(card);
             isHeld = true;
-            Debug.Log($"📌 Holding card for next turn: {card.cardName}");
+            Debug.Log($"Holding card for next turn: {card.cardName}");
         }
 
         UpdateHoldIndicator();
@@ -190,7 +185,6 @@ public class CardUI : MonoBehaviour
 
         if (holdButton != null)
         {
-            // Update button text/appearance based on hold state
             TMP_Text buttonText = holdButton.GetComponentInChildren<TMP_Text>();
             if (buttonText != null)
             {
@@ -199,9 +193,6 @@ public class CardUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Update the selected state (for card selection mechanics)
-    /// </summary>
     public void SetSelected(bool selected)
     {
         isSelected = selected;
@@ -211,42 +202,30 @@ public class CardUI : MonoBehaviour
             selectedIndicator.gameObject.SetActive(selected);
         }
 
-        // Update visual appearance
         if (playButton != null)
         {
-            // Change button appearance based on selection
             ColorBlock colors = playButton.colors;
             colors.normalColor = selected ? Color.yellow : Color.white;
             playButton.colors = colors;
         }
 
-        // You could also update the card's appearance here
-        // e.g., change border color, scale, etc.
         CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup != null)
         {
-            // Slightly highlight selected cards
             canvasGroup.alpha = selected ? 1f : 0.8f;
         }
     }
 
-    /// <summary>
-    /// Clear selection and any visual highlights
-    /// </summary>
     public void CancelSelection()
     {
         SetSelected(false);
 
-        // Clear any movement previews through PlayerPawn
         if (player != null)
         {
             player.ClearMovementPreview();
         }
     }
 
-    /// <summary>
-    /// Set card interactability
-    /// </summary>
     public void SetInteractable(bool interactable)
     {
         if (playButton != null)
@@ -259,7 +238,6 @@ public class CardUI : MonoBehaviour
             holdButton.interactable = interactable;
         }
 
-        // Visual feedback for non-interactable state
         CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup != null)
         {
@@ -267,53 +245,36 @@ public class CardUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Get card cost for UI logic
-    /// </summary>
     public int GetFocusCost()
     {
         return card?.focusCost ?? 0;
     }
 
-    /// <summary>
-    /// Check if this card can be played (override for custom logic)
-    /// </summary>
     public virtual bool CanPlay()
     {
         if (card == null || player == null) return false;
 
-        // Check if card is still in hand
         if (DeckManager.Instance != null && !DeckManager.Instance.CurrentHand.Contains(card))
         {
             return false;
         }
 
-        // Add any custom play conditions here
-        // e.g., focus cost checks, turn restrictions, etc.
-
         return true;
     }
 
-    /// <summary>
-    /// Update the card's visual state based on game conditions
-    /// </summary>
     public void UpdateCardState()
     {
         bool canPlay = CanPlay();
         SetInteractable(canPlay);
 
-        // Update focus cost color if player doesn't have enough focus
         if (focusText != null && card != null)
         {
-            // This would require a focus/resource system
-            // For now, just ensure the text is correct
             focusText.text = $"Focus = {card.focusCost}";
         }
     }
 
     private void OnDestroy()
     {
-        // Clean up button listeners to prevent memory leaks
         if (playButton != null)
         {
             playButton.onClick.RemoveAllListeners();
@@ -324,7 +285,6 @@ public class CardUI : MonoBehaviour
             holdButton.onClick.RemoveAllListeners();
         }
 
-        // If this card was selected, clear the selection
         if (isSelected && CardSelectionManager.Instance != null && CardSelectionManager.Instance.selectedCard == card)
         {
             CardSelectionManager.Instance.ClearSelection();
@@ -332,15 +292,16 @@ public class CardUI : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    /// <summary>
-    /// Editor-only debug method
-    /// </summary>
     [ContextMenu("Debug Card UI State")]
     void DebugCardUIState()
     {
         Debug.Log("=== CARD UI DEBUG ===");
         Debug.Log($"Card: {(card != null ? card.cardName : "NULL")}");
         Debug.Log($"Player: {(player != null ? player.name : "NULL")}");
+        Debug.Log($"Player Initialized: {(player != null ? player.IsInitialized.ToString() : "N/A")}");
+        Debug.Log($"Player Grid Position: {(player != null ? player.GridPosition.ToString() : "N/A")}");
+        Debug.Log($"Player World Position: {(player != null ? player.transform.position.ToString() : "N/A")}");
+        Debug.Log($"Player GridManager: {(player?.GridManager != null ? player.GridManager.name : "NULL")}");
         Debug.Log($"Is Held: {isHeld}");
         Debug.Log($"Is Selected: {isSelected}");
         Debug.Log($"Can Play: {CanPlay()}");

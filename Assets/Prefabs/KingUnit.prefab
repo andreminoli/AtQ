@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &5842967936215886773
+--- !u!1 &2811120706577787192
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6615456081825899132}
-  - component: {fileID: 8843214225701116957}
-  - component: {fileID: 1074424027604164758}
-  - component: {fileID: 6212379843970582562}
-  - component: {fileID: 6321391536057843825}
+  - component: {fileID: 8787209356151017413}
+  - component: {fileID: 8050499543397278664}
+  - component: {fileID: 448528889879177539}
+  - component: {fileID: 528204926264328533}
+  - component: {fileID: 4258537651397791487}
   m_Layer: 0
-  m_Name: Tile
+  m_Name: KingUnit
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6615456081825899132
+--- !u!4 &8787209356151017413
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5842967936215886773}
+  m_GameObject: {fileID: 2811120706577787192}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 5.404162, y: 0.025, z: 1.5197887}
-  m_LocalScale: {x: 0.95, y: 0.05, z: 0.95}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8843214225701116957
+--- !u!33 &8050499543397278664
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5842967936215886773}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &1074424027604164758
+  m_GameObject: {fileID: 2811120706577787192}
+  m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &448528889879177539
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5842967936215886773}
+  m_GameObject: {fileID: 2811120706577787192}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -68,7 +68,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 835ff138e9a1fa748b68ffa42db20345, type: 2}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -91,13 +91,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6212379843970582562
-BoxCollider:
+--- !u!136 &528204926264328533
+CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5842967936215886773}
+  m_GameObject: {fileID: 2811120706577787192}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -109,26 +109,25 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &6321391536057843825
+--- !u!114 &4258537651397791487
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5842967936215886773}
+  m_GameObject: {fileID: 2811120706577787192}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f43d17f8034ae044b113123411bea26, type: 3}
+  m_Script: {fileID: 11500000, guid: 848a6c05f9e68e448bea50644200cd63, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Tile
-  gridPosition: {x: 0, y: 0}
-  isWalkable: 1
-  debugMode: 0
-  currentOccupant: {fileID: 0}
-  rend: {fileID: 0}
-  spriteRenderer: {fileID: 0}
-  occupiedColor: {r: 1, g: 0, b: 0, a: 1}
-  blockedColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_EditorClassIdentifier: Assembly-CSharp::KingUnit
+  unitName: Unit
+  health: 1
+  isAlive: 1
+  unitType: 0
+  debugMode: 1

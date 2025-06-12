@@ -61,17 +61,21 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.2.0b2\Editor\Data\Tools\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Sripts\EndTurnButton.cs" />
     <Compile Include="Assets\Sripts\DeckManager.cs" />
     <Compile Include="Assets\CodeBuddy\Demo\CodeBuddyDemo.cs" />
     <Compile Include="Assets\Sripts\CardManager.cs" />
     <Compile Include="Assets\Sripts\UnitBase.cs" />
+    <Compile Include="Assets\Sripts\KingUnit.cs" />
     <Compile Include="Assets\Sripts\EnemyUnit.cs" />
     <Compile Include="Assets\Sripts\PlayerPawn.cs" />
     <Compile Include="Assets\Sripts\CardSelectionManager.cs" />
     <Compile Include="Assets\Sripts\GridManager.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\Sripts\CardUI.cs" />
+    <Compile Include="Assets\Sripts\debug.cs" />
     <Compile Include="Assets\Sripts\MoveCard.cs" />
+    <Compile Include="Assets\Sripts\TurnManager.cs" />
     <Compile Include="Assets\Sripts\Tile.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -1,33 +1,63 @@
 using UnityEngine;
 
-public class UnitBase : MonoBehaviour
+public abstract class UnitBase : MonoBehaviour
 {
-    public Vector2Int gridPosition;
-    public int baseHP = 1;
-    public int armor = 0;
+    [Header("Unit Base Settings")]
+    [SerializeField] protected string unitName = "Unit";
+    [SerializeField] protected int health = 1;
+    [SerializeField] protected bool isAlive = true;
 
-    public int TotalHP => baseHP + armor;
+    public enum UnitType { King, Player, Enemy, Obstacle }
+    [SerializeField] protected UnitType unitType = UnitType.King;
 
-    public virtual void TakeDamage(int amount)
+    // Grid position property - no backing field serialization
+    private Vector2Int gridPosition;
+    public virtual Vector2Int GridPosition
     {
-        int remaining = TotalHP - amount;
+        get => gridPosition;
+        set => gridPosition = value;
+    }
 
-        if (remaining <= 0)
-        {
-            Debug.Log($"{gameObject.name} defeated.");
-            Destroy(gameObject); // simulate capture
-        }
-        else
-        {
-            if (armor > 0)
-            {
-                int absorbed = Mathf.Min(armor, amount);
-                armor -= absorbed;
-                amount -= absorbed;
-            }
+    protected virtual void Start() { }
 
-            baseHP -= amount;
-            Debug.Log($"{gameObject.name} took damage. HP: {baseHP}, Armor: {armor}");
+    public string GetUnitName() => unitName;
+    public UnitType GetUnitType() => unitType;
+    public int GetHealth() => health;
+    public bool IsAlive() => isAlive && health > 0;
+
+    public virtual void TakeDamage(int damage)
+    {
+        if (!isAlive) return;
+        health -= damage;
+        if (health <= 0)
+        {
+            health = 0;
+            Die();
         }
     }
+
+    protected virtual void Die()
+    {
+        isAlive = false;
+        Debug.Log($"{unitName} has died!");
+    }
+
+    public virtual void Heal(int healAmount)
+    {
+        if (!isAlive) return;
+        health += healAmount;
+        Debug.Log($"{unitName} healed for {healAmount} health");
+    }
+
+    public virtual void Initialize(string name, int startHealth, UnitType type)
+    {
+        unitName = name;
+        health = startHealth;
+        unitType = type;
+        isAlive = true;
+    }
+
+    public virtual void OnTurnStart() { }
+    public virtual void OnTurnEnd() { }
+    public virtual void OnInteractWith(UnitBase otherUnit) { }
 }

@@ -15,7 +15,7 @@ public class CardManager : MonoBehaviour
     private PlayerPawn player;
     private bool cardSpawnStarted = false;
     private List<GameObject> spawnedCardObjects = new();
-    private List<MoveCard> currentDisplayedCards = new(); // Track what's currently displayed
+    private List<MoveCard> currentDisplayedCards = new();
 
     void OnEnable()
     {
@@ -23,11 +23,10 @@ public class CardManager : MonoBehaviour
         DeckManager.OnHandUpdated += HandleHandUpdated;
         DeckManager.OnHandCleared += HandleHandCleared;
 
-        // Subscribe to selection events to avoid unnecessary redraws
         CardSelectionManager.OnCardSelected += HandleCardSelected;
         CardSelectionManager.OnCardDeselected += HandleCardDeselected;
 
-        Debug.Log($"🔗 CardManager subscribed to events at frame {Time.frameCount}");
+        Debug.Log($"CardManager subscribed to events at frame {Time.frameCount}");
     }
 
     void OnDisable()
@@ -38,40 +37,39 @@ public class CardManager : MonoBehaviour
         CardSelectionManager.OnCardSelected -= HandleCardSelected;
         CardSelectionManager.OnCardDeselected -= HandleCardDeselected;
 
-        Debug.Log($"🔌 CardManager unsubscribed from events at frame {Time.frameCount}");
+        Debug.Log($"CardManager unsubscribed from events at frame {Time.frameCount}");
     }
 
     void Start()
     {
-        Debug.Log($"📦 CardManager Start() called at frame {Time.frameCount}");
+        Debug.Log($"CardManager Start() called at frame {Time.frameCount}");
         StartCoroutine(DelayedStartInitialization());
     }
 
     IEnumerator DelayedStartInitialization()
     {
-        Debug.Log($"⏳ Starting delayed initialization at frame {Time.frameCount}");
+        Debug.Log($"Starting delayed initialization at frame {Time.frameCount}");
 
-        // Wait for systems like DeckManager to fully initialize
         yield return null;
         yield return null;
         yield return new WaitForEndOfFrame();
 
         if (cardParent == null || cardUIPrefab == null)
         {
-            Debug.LogError("❌ CardManager is missing cardParent or cardUIPrefab references.");
+            Debug.LogError("CardManager is missing cardParent or cardUIPrefab references.");
             yield break;
         }
 
         if (cardsToSpawn.Count > 0 && DeckManager.Instance != null)
         {
-            Debug.Log($"🔄 Found {cardsToSpawn.Count} legacy cards - migrating to DeckManager at frame {Time.frameCount}");
+            Debug.Log($"Found {cardsToSpawn.Count} legacy cards - migrating to DeckManager at frame {Time.frameCount}");
             MigrateLegacyCards();
         }
 
         player = FindAnyObjectByType<PlayerPawn>();
         if (player != null && player.IsInitialized && !cardSpawnStarted)
         {
-            Debug.Log($"📦 Late PlayerPawn found — triggering HandlePlayerInitialized at frame {Time.frameCount}");
+            Debug.Log($"Late PlayerPawn found — triggering HandlePlayerInitialized at frame {Time.frameCount}");
             HandlePlayerInitialized(player);
         }
     }
@@ -80,28 +78,62 @@ public class CardManager : MonoBehaviour
     {
         if (cardSpawnStarted)
         {
-            Debug.Log($"⏭️ Card spawn already started, skipping HandlePlayerInitialized at frame {Time.frameCount}");
+            Debug.Log($"Card spawn already started, skipping HandlePlayerInitialized at frame {Time.frameCount}");
             return;
         }
 
         if (DeckManager.Instance == null)
         {
-            Debug.LogWarning($"🚫 DeckManager is null during HandlePlayerInitialized — skipping.");
+            Debug.LogWarning($"DeckManager is null during HandlePlayerInitialized — skipping.");
             return;
         }
 
-        Debug.Log($"🕐 CardManager initialized with PlayerPawn at frame {Time.frameCount}");
+        Debug.Log($"CardManager handling PlayerPawn initialization at frame {Time.frameCount}");
+        StartCoroutine(WaitForPlayerReady(playerRef));
+    }
+
+    IEnumerator WaitForPlayerReady(PlayerPawn playerRef)
+    {
+        Debug.Log($"Waiting for PlayerPawn to be fully initialized at frame {Time.frameCount}");
+
+        while (!playerRef.IsInitialized)
+        {
+            yield return null;
+        }
+
+        // Wait until PlayerPawn has GridManager reference
+        int attempts = 0;
+        const int maxAttempts = 100;
+
+        while (playerRef.GridManager == null && attempts < maxAttempts)
+        {
+            Debug.Log($"[CardManager] Waiting for PlayerPawn to have GridManager... (attempt {attempts + 1})");
+            attempts++;
+            yield return null;
+        }
+
+        if (attempts >= maxAttempts)
+        {
+            Debug.LogWarning($"[CardManager] PlayerPawn GridManager wait timeout after {maxAttempts} attempts");
+        }
+        else if (playerRef.GridManager != null)
+        {
+            Debug.Log($"[CardManager] PlayerPawn GridManager found after {attempts} attempts");
+        }
+
+        Debug.Log($"PlayerPawn is now fully initialized with GridManager at frame {Time.frameCount}");
+
         player = playerRef;
         cardSpawnStarted = true;
 
         if (DeckManager.Instance.HasCards)
         {
-            Debug.Log($"📋 DeckManager already has {DeckManager.Instance.CurrentHand.Count} cards — displaying them at frame {Time.frameCount}");
+            Debug.Log($"DeckManager already has {DeckManager.Instance.CurrentHand.Count} cards — displaying them at frame {Time.frameCount}");
             HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
         {
-            Debug.Log($"📭 DeckManager has no cards yet, waiting for hand update at frame {Time.frameCount}");
+            Debug.Log($"DeckManager has no cards yet, waiting for hand update at frame {Time.frameCount}");
         }
     }
 
@@ -116,50 +148,44 @@ public class CardManager : MonoBehaviour
         }
 
         cardsToSpawn.Clear();
-        Debug.Log($"✅ Legacy card migration complete at frame {Time.frameCount}");
+        Debug.Log($"Legacy card migration complete at frame {Time.frameCount}");
     }
 
     void HandleHandUpdated(List<MoveCard> newHand)
     {
         if (!cardSpawnStarted || player == null)
         {
-            Debug.LogWarning($"⚠️ CardManager not ready to display hand — waiting for player initialization at frame {Time.frameCount}");
+            Debug.LogWarning($"CardManager not ready to display hand — waiting for player initialization at frame {Time.frameCount}");
             return;
         }
 
-        // Check if the hand actually changed to avoid unnecessary UI rebuilds
         if (AreHandsEqual(currentDisplayedCards, newHand))
         {
-            Debug.Log($"⚪ Hand content unchanged ({newHand.Count} cards) - skipping UI rebuild at frame {Time.frameCount}");
+            Debug.Log($"Hand content unchanged ({newHand.Count} cards) - skipping UI rebuild at frame {Time.frameCount}");
             return;
         }
 
-        Debug.Log($"🃏 Hand content changed - updating display with {newHand.Count} cards at frame {Time.frameCount}");
+        Debug.Log($"Hand content changed - updating display with {newHand.Count} cards at frame {Time.frameCount}");
         StartCoroutine(UpdateHandDisplayRoutine(newHand));
     }
 
     void HandleHandCleared()
     {
-        Debug.Log($"🧹 Hand cleared by DeckManager at frame {Time.frameCount}");
+        Debug.Log($"Hand cleared by DeckManager at frame {Time.frameCount}");
         ClearAllCardUIs();
         currentDisplayedCards.Clear();
     }
 
     void HandleCardSelected(MoveCard selectedCard)
     {
-        Debug.Log($"🎯 Card selected: {selectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
-        // No need to rebuild UI - CardSelectionManager handles the visual updates
+        Debug.Log($"Card selected: {selectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
     }
 
     void HandleCardDeselected(MoveCard deselectedCard)
     {
-        Debug.Log($"⚪ Card deselected: {deselectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
-        // No need to rebuild UI - CardSelectionManager handles the visual updates
+        Debug.Log($"Card deselected: {deselectedCard?.cardName} - no UI rebuild needed at frame {Time.frameCount}");
     }
 
-    /// <summary>
-    /// Check if two hand lists contain the same cards in the same order
-    /// </summary>
     bool AreHandsEqual(List<MoveCard> hand1, List<MoveCard> hand2)
     {
         if (hand1.Count != hand2.Count) return false;
@@ -174,9 +200,8 @@ public class CardManager : MonoBehaviour
 
     IEnumerator UpdateHandDisplayRoutine(List<MoveCard> cards)
     {
-        Debug.Log($"🎬 Starting hand display update routine at frame {Time.frameCount}");
+        Debug.Log($"Starting hand display update routine at frame {Time.frameCount}");
 
-        // Store the new hand configuration
         currentDisplayedCards = new List<MoveCard>(cards);
 
         ClearAllCardUIs();
@@ -184,14 +209,14 @@ public class CardManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
 
-        Debug.Log($"🎭 Beginning card UI spawning at frame {Time.frameCount}");
+        Debug.Log($"Beginning card UI spawning at frame {Time.frameCount}");
 
         int successfulSpawns = 0;
         foreach (MoveCard card in cards)
         {
             if (card == null)
             {
-                Debug.LogWarning($"⚠️ Null card in hand — skipping at frame {Time.frameCount}");
+                Debug.LogWarning($"Null card in hand — skipping at frame {Time.frameCount}");
                 continue;
             }
 
@@ -204,21 +229,20 @@ public class CardManager : MonoBehaviour
                 spawnedCardObjects.Add(cardGO);
                 successfulSpawns++;
 
-                Debug.Log($"✅ Card '{card.cardName}' spawned successfully at frame {Time.frameCount}");
-                Debug.Log($"↳ Parent: {cardParent.name} | Pos: {cardGO.transform.localPosition} | Scale: {cardGO.transform.localScale}");
+                Debug.Log($"Card '{card.cardName}' spawned successfully at frame {Time.frameCount}");
+                Debug.Log($"Parent: {cardParent.name} | Pos: {cardGO.transform.localPosition} | Scale: {cardGO.transform.localScale}");
             }
             else
             {
-                Debug.LogError($"❌ Spawned card prefab missing CardUI component at frame {Time.frameCount}");
+                Debug.LogError($"Spawned card prefab missing CardUI component at frame {Time.frameCount}");
                 Destroy(cardGO);
             }
 
             yield return null;
         }
 
-        Debug.Log($"🎴 Hand display updated — {successfulSpawns}/{cards.Count} card UIs spawned at frame {Time.frameCount}");
+        Debug.Log($"Hand display updated — {successfulSpawns}/{cards.Count} card UIs spawned at frame {Time.frameCount}");
 
-        // Notify CardSelectionManager to update selections after UI rebuild
         if (CardSelectionManager.Instance != null)
         {
             CardSelectionManager.Instance.OnHandUpdated();
@@ -238,22 +262,21 @@ public class CardManager : MonoBehaviour
         }
 
         spawnedCardObjects.Clear();
-        Debug.Log($"🗑️ Cleared {clearedCount} card UI objects at frame {Time.frameCount}");
+        Debug.Log($"Cleared {clearedCount} card UI objects at frame {Time.frameCount}");
     }
 
     public void RefreshHandDisplay()
     {
-        Debug.Log($"🔄 Force refreshing hand display at frame {Time.frameCount}");
+        Debug.Log($"Force refreshing hand display at frame {Time.frameCount}");
 
         if (DeckManager.Instance != null)
         {
-            // Force a rebuild by clearing current displayed cards
             currentDisplayedCards.Clear();
             HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
         {
-            Debug.LogWarning("❌ Cannot refresh hand display — DeckManager not found.");
+            Debug.LogWarning("Cannot refresh hand display — DeckManager not found.");
         }
     }
 
@@ -274,13 +297,13 @@ public class CardManager : MonoBehaviour
     {
         if (cardSpawnStarted && player != null && DeckManager.Instance != null && DeckManager.Instance.HasCards)
         {
-            Debug.Log($"🔧 Force triggering hand update at frame {Time.frameCount}");
-            currentDisplayedCards.Clear(); // Force rebuild
+            Debug.Log($"Force triggering hand update at frame {Time.frameCount}");
+            currentDisplayedCards.Clear();
             HandleHandUpdated(DeckManager.Instance.CurrentHand);
         }
         else
         {
-            Debug.LogWarning($"⚠️ Cannot force hand update — systems not ready at frame {Time.frameCount}");
+            Debug.LogWarning($"Cannot force hand update — systems not ready at frame {Time.frameCount}");
             Debug.LogWarning($"    Card Spawn Started: {cardSpawnStarted}");
             Debug.LogWarning($"    Player: {(player != null ? player.name : "NULL")}");
             Debug.LogWarning($"    DeckManager: {(DeckManager.Instance != null ? "Found" : "NULL")}");
@@ -288,9 +311,6 @@ public class CardManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Get all currently spawned CardUI components
-    /// </summary>
     public List<CardUI> GetAllCardUIs()
     {
         List<CardUI> cardUIs = new List<CardUI>();
@@ -308,9 +328,6 @@ public class CardManager : MonoBehaviour
         return cardUIs;
     }
 
-    /// <summary>
-    /// Update the interactability of all cards based on game state
-    /// </summary>
     public void UpdateAllCardsInteractability()
     {
         foreach (CardUI cardUI in GetAllCardUIs())
@@ -347,7 +364,6 @@ public class CardManager : MonoBehaviour
         Debug.Log($"Card Parent: {(cardParent != null ? cardParent.name : "NULL")}");
         Debug.Log($"Card UI Prefab: {(cardUIPrefab != null ? cardUIPrefab.name : "NULL")}");
 
-        // Display current hand vs displayed cards
         Debug.Log("=== HAND COMPARISON ===");
         if (DeckManager.Instance != null)
         {
@@ -362,7 +378,7 @@ public class CardManager : MonoBehaviour
     [ContextMenu("Force Rebuild UI")]
     void ForceRebuildUI()
     {
-        Debug.Log("🔧 Force rebuilding card UI from editor");
+        Debug.Log("Force rebuilding card UI from editor");
         RefreshHandDisplay();
     }
 #endif

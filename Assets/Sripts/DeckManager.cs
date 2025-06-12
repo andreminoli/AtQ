@@ -30,7 +30,6 @@ public class DeckManager : MonoBehaviour
 
     // Track initialization state
     private bool isInitialized = false;
-    private bool hasDrawnInitialHand = false;
 
     private void Awake()
     {
@@ -49,64 +48,49 @@ public class DeckManager : MonoBehaviour
         }
 
         isInitialized = true;
-        DebugLog($"🃏 DeckManager initialized at frame {Time.frameCount}");
+        DebugLog($"DeckManager initialized at frame {Time.frameCount}");
     }
 
     private void OnEnable()
     {
         // Subscribe to player initialization event
         PlayerPawn.OnInitialized += OnPlayerInitialized;
-        DebugLog($"🔗 DeckManager subscribed to PlayerPawn events at frame {Time.frameCount}");
+        DebugLog($"DeckManager subscribed to PlayerPawn events at frame {Time.frameCount}");
     }
 
     private void OnDisable()
     {
         // Unsubscribe from events
         PlayerPawn.OnInitialized -= OnPlayerInitialized;
-        DebugLog($"🔌 DeckManager unsubscribed from PlayerPawn events at frame {Time.frameCount}");
+        DebugLog($"DeckManager unsubscribed from PlayerPawn events at frame {Time.frameCount}");
     }
 
     private void Start()
     {
-        DebugLog($"▶️ DeckManager Start() called at frame {Time.frameCount}");
+        DebugLog($"DeckManager Start() called at frame {Time.frameCount}");
 
         // Check if player is already initialized (fallback scenario)
         PlayerPawn existingPlayer = FindAnyObjectByType<PlayerPawn>();
-        if (existingPlayer != null && existingPlayer.IsInitialized && !hasDrawnInitialHand)
+        if (existingPlayer != null && existingPlayer.IsInitialized)
         {
-            DebugLog($"⚠️ Found already-initialized PlayerPawn in Start() at frame {Time.frameCount}");
+            DebugLog($"Found already-initialized PlayerPawn in Start() at frame {Time.frameCount}");
             OnPlayerInitialized(existingPlayer);
         }
     }
 
     /// <summary>
-    /// Called when PlayerPawn is initialized - this is when we draw the initial hand
+    /// Called when PlayerPawn is initialized - DO NOT draw initial hand here
+    /// Let TurnManager handle all hand drawing to avoid double draws
     /// </summary>
     private void OnPlayerInitialized(PlayerPawn player)
     {
-        if (hasDrawnInitialHand)
-        {
-            DebugLog($"⏭️ Initial hand already drawn, skipping at frame {Time.frameCount}");
-            return;
-        }
+        DebugLog($"Player initialized detected - DeckManager ready at frame {Time.frameCount}");
 
-        DebugLog($"🎯 Player initialized detected - drawing initial hand at frame {Time.frameCount}");
-        hasDrawnInitialHand = true;
+        // REMOVED: Initial hand drawing - TurnManager will handle this
+        // StartCoroutine(DelayedInitialHandDraw()); // <-- This was causing double draw
 
-        // Small delay to ensure all systems are ready
-        StartCoroutine(DelayedInitialHandDraw());
-    }
-
-    /// <summary>
-    /// Coroutine to draw initial hand with a small delay
-    /// </summary>
-    private System.Collections.IEnumerator DelayedInitialHandDraw()
-    {
-        // Wait a frame to ensure all initialization is complete
-        yield return null;
-
-        DebugLog($"🎴 Drawing delayed initial hand at frame {Time.frameCount}");
-        DrawHand();
+        // Just log that we're ready to serve cards when requested
+        DebugLog($"DeckManager ready to serve cards when TurnManager requests them at frame {Time.frameCount}");
     }
 
     /// <summary>
@@ -114,7 +98,7 @@ public class DeckManager : MonoBehaviour
     /// </summary>
     private void InitializeSampleDeck()
     {
-        DebugLog($"⚠️ No deck pool assigned - creating sample deck at frame {Time.frameCount}");
+        DebugLog($"No deck pool assigned - creating sample deck at frame {Time.frameCount}");
 
         // This would typically be populated by loading from ScriptableObjects
         // For now, we'll leave it empty and log a warning
@@ -128,7 +112,7 @@ public class DeckManager : MonoBehaviour
     /// </summary>
     public void DrawHand()
     {
-        DebugLog($"🎴 Drawing new hand at frame {Time.frameCount}...");
+        DebugLog($"🎯 Drawing hand of {currentHand.Count} cards at frame {Time.frameCount}...");
 
         // Clear current hand
         currentHand.Clear();
@@ -137,7 +121,7 @@ public class DeckManager : MonoBehaviour
         if (heldCards.Count > 0)
         {
             currentHand.AddRange(heldCards);
-            DebugLog($"📌 Added {heldCards.Count} held cards to hand at frame {Time.frameCount}");
+            DebugLog($"Added {heldCards.Count} held cards to hand at frame {Time.frameCount}");
             heldCards.Clear(); // Clear held cards after adding them
         }
 
@@ -146,7 +130,7 @@ public class DeckManager : MonoBehaviour
 
         if (deckPool.Count == 0)
         {
-            Debug.LogError($"❌ Cannot draw cards - deck pool is empty! Frame: {Time.frameCount}");
+            Debug.LogError($"Cannot draw cards - deck pool is empty! Frame: {Time.frameCount}");
             return;
         }
 
@@ -156,14 +140,14 @@ public class DeckManager : MonoBehaviour
             if (drawnCard != null)
             {
                 currentHand.Add(drawnCard);
-                DebugLog($"🎯 Drew card: {drawnCard.cardName} at frame {Time.frameCount}");
+                DebugLog($"Drew card: {drawnCard.cardName} at frame {Time.frameCount}");
             }
         }
 
-        DebugLog($"✅ Hand drawn - {currentHand.Count} cards total at frame {Time.frameCount}");
+        DebugLog($"Hand drawn - {currentHand.Count} cards total at frame {Time.frameCount}");
 
         // Broadcast hand update
-        DebugLog($"📡 Broadcasting hand update at frame {Time.frameCount}");
+        DebugLog($"Broadcasting hand update at frame {Time.frameCount}");
         OnHandUpdated?.Invoke(CurrentHand);
     }
 
@@ -185,11 +169,11 @@ public class DeckManager : MonoBehaviour
     {
         if (!currentHand.Contains(card))
         {
-            DebugLog($"❌ Cannot use card {card.cardName} - not in current hand at frame {Time.frameCount}");
+            DebugLog($"Cannot use card {card.cardName} - not in current hand at frame {Time.frameCount}");
             return false;
         }
 
-        DebugLog($"🎮 Using card: {card.cardName} at frame {Time.frameCount}");
+        DebugLog($"Using card: {card.cardName} at frame {Time.frameCount}");
 
         // Mark card as used (if it has usage tracking)
         if (card != null)
@@ -200,8 +184,14 @@ public class DeckManager : MonoBehaviour
         // Remove from current hand
         currentHand.Remove(card);
 
+        // Notify CardSelectionManager that this card was used
+        if (CardSelectionManager.Instance != null)
+        {
+            CardSelectionManager.Instance.OnCardUsed(card);
+        }
+
         // Broadcast hand update
-        DebugLog($"📡 Broadcasting hand update after card use at frame {Time.frameCount}");
+        DebugLog($"Broadcasting hand update after card use at frame {Time.frameCount}");
         OnHandUpdated?.Invoke(CurrentHand);
 
         return true;
@@ -214,14 +204,14 @@ public class DeckManager : MonoBehaviour
     {
         if (!currentHand.Contains(card))
         {
-            DebugLog($"❌ Cannot hold card {card.cardName} - not in current hand at frame {Time.frameCount}");
+            DebugLog($"Cannot hold card {card.cardName} - not in current hand at frame {Time.frameCount}");
             return;
         }
 
         if (!heldCards.Contains(card))
         {
             heldCards.Add(card);
-            DebugLog($"📌 Holding card for next turn: {card.cardName} at frame {Time.frameCount}");
+            DebugLog($"Holding card for next turn: {card.cardName} at frame {Time.frameCount}");
         }
     }
 
@@ -232,7 +222,7 @@ public class DeckManager : MonoBehaviour
     {
         if (heldCards.Remove(card))
         {
-            DebugLog($"🔓 Released held card: {card.cardName} at frame {Time.frameCount}");
+            DebugLog($"Released held card: {card.cardName} at frame {Time.frameCount}");
         }
     }
 
@@ -249,7 +239,7 @@ public class DeckManager : MonoBehaviour
     /// </summary>
     public void ClearHand()
     {
-        DebugLog($"🧹 Clearing current hand at frame {Time.frameCount}...");
+        DebugLog($"Clearing current hand at frame {Time.frameCount}...");
 
         // Don't clear held cards - they survive cleanup
         List<MoveCard> cardsToRemove = new List<MoveCard>();
@@ -267,7 +257,7 @@ public class DeckManager : MonoBehaviour
             currentHand.Remove(card);
         }
 
-        DebugLog($"🗑️ Removed {cardsToRemove.Count} cards, {currentHand.Count} cards remain (held) at frame {Time.frameCount}");
+        DebugLog($"Removed {cardsToRemove.Count} cards, {currentHand.Count} cards remain (held) at frame {Time.frameCount}");
 
         // Broadcast hand cleared
         OnHandCleared?.Invoke();
@@ -283,7 +273,7 @@ public class DeckManager : MonoBehaviour
         {
             deckPool.Add(card);
         }
-        DebugLog($"➕ Added {quantity}x {card.cardName} to deck pool at frame {Time.frameCount}");
+        DebugLog($"Added {quantity}x {card.cardName} to deck pool at frame {Time.frameCount}");
     }
 
     /// <summary>
@@ -295,7 +285,7 @@ public class DeckManager : MonoBehaviour
         {
             deckPool.Remove(card);
         }
-        DebugLog($"➖ Removed {quantity}x {card.cardName} from deck pool at frame {Time.frameCount}");
+        DebugLog($"Removed {quantity}x {card.cardName} from deck pool at frame {Time.frameCount}");
     }
 
     /// <summary>
@@ -338,7 +328,6 @@ public class DeckManager : MonoBehaviour
     {
         currentHand.Clear();
         heldCards.Clear();
-        hasDrawnInitialHand = false;
 
         // Reset all cards' used flags
         foreach (MoveCard card in deckPool)
@@ -349,7 +338,7 @@ public class DeckManager : MonoBehaviour
             }
         }
 
-        DebugLog($"🔄 Deck manager reset at frame {Time.frameCount}");
+        DebugLog($"Deck manager reset at frame {Time.frameCount}");
         OnHandCleared?.Invoke();
     }
 
@@ -358,7 +347,7 @@ public class DeckManager : MonoBehaviour
     /// </summary>
     public void ForceRedrawHand()
     {
-        DebugLog($"🔄 Force redrawing hand at frame {Time.frameCount}");
+        DebugLog($"Force redrawing hand at frame {Time.frameCount}");
         DrawHand();
     }
 
@@ -371,7 +360,6 @@ public class DeckManager : MonoBehaviour
     {
         Debug.Log($"=== DECK MANAGER DEBUG (Frame {Time.frameCount}) ===");
         Debug.Log($"Is Initialized: {isInitialized}");
-        Debug.Log($"Has Drawn Initial Hand: {hasDrawnInitialHand}");
 
         Debug.Log($"Deck Pool ({deckPool.Count} cards):");
         var composition = GetDeckComposition();
